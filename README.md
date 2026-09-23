@@ -31,6 +31,11 @@ Tested with CUDA 12.6 on an RTX 3060 Laptop.
 | `20_matmul_regtile.cu` | GEMM #3: 4x4 register tiling per thread, faster than 08 |
 | `21_thrust_sandbox.cu` | thrust reduce/transform/sort vs std::sort, mixed device/host iterator trap |
 | `22_cuda_graphs.cu` | stream capture + graph replay, launch overhead vs plain launches |
+| `23_matmul_profile.cu` | all three GEMM versions in one binary for profiling, size on argv |
+| `24_roofline_anchor.cu` | measured ceilings: D2D/saxpy bandwidth, cuBLAS FP32 peak |
+
+see [PROFILING.md](PROFILING.md) for the bottleneck analysis of the three
+matmul kernels (what each version is bound by, with numbers).
 
 ## build & run
 
@@ -58,3 +63,5 @@ nvcc 03_vector_add.cu -o vector_add
    warp shuffles, sorting, image ops, constant memory, register tiling
 7. 10-13 + 21-22: engineering flavor: unified memory, streams, atomics,
    cuBLAS, thrust, cuda graphs
+8. 23 + 24 + PROFILING.md: profiling -- how to find the bottleneck and
+   prove it, not just guess it

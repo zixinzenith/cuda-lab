@@ -22,3 +22,10 @@ thrust_demo
 graphs
 sobel.pgm
 *.o
+matmul_profile
+*.ncu-rep
+ncu_sol.csv
+naive.txt
+tiled.txt
+regtile.txt
+roofline

@@ -3,7 +3,7 @@ NVCC = nvcc
 TARGETS = hello device_info vector_add grid_2d reduce timing \
           matmul_naive matmul_tiled transpose unified streams hist cublas \
           transpose_shared scan warp_ops bitonic image conv2d \
-          matmul_regtile thrust_demo graphs
+          matmul_regtile thrust_demo graphs matmul_profile roofline
 
 all: $(TARGETS)
 
@@ -73,6 +73,15 @@ thrust_demo: 21_thrust_sandbox.cu
 graphs: 22_cuda_graphs.cu
 	$(NVCC) $< -o $@
 
+matmul_profile: 23_matmul_profile.cu
+	$(NVCC) $< -o $@
+
+roofline: 24_roofline_anchor.cu
+	$(NVCC) $< -lcublas -o $@
+
+profile: matmul_profile
+	./profile_matmul.sh
+
 run: all
 	./hello
 	./device_info
@@ -96,6 +105,8 @@ run: all
 	./matmul_regtile
 	./thrust_demo
 	./graphs
+	./matmul_profile
+	./roofline
 
 clean:
 	rm -f $(TARGETS)
