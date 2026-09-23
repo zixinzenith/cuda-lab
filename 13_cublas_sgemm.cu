@@ -1,14 +1,14 @@
-// 用 cuBLAS：实际工作中除非学习目的，一般不手写 GEMM
-// cuBLAS 是 NVIDIA 官方的高度优化 BLAS 库，底层用的是 tensor core
+// cublas: the library you'd actually use at work instead of hand-rolled GEMM
+// build: nvcc 13_cublas_sgemm.cu -lcublas -o cublas
 //
-// 坑点提醒：
-// 1. cuBLAS 默认按列主序（Fortran 风格），和 C 的行主序相反。
-//    技巧：C = A*B (行主序) 等价于 C^T = B^T * A^T (列主序)，
-//    所以直接把行主序的 A、B 按原样传进去，用 cublasSgemm('N','N') 即可，
-//    拿到的结果缓冲区就是行主序的 C。
-// 2. 句柄 cublasHandle_t 创建一次，重复使用。
+// two gotchas that cost me some time:
+// 1. cublas is column-major (fortran style), C code is row-major.
+//    trick: C = A*B in row-major equals C^T = B^T * A^T in column-major,
+//    so pass the row-major buffers as-is with OP_N and the result
+//    buffer already holds row-major C. no transposing of data needed.
+// 2. create the cublasHandle_t once, reuse it everywhere.
 //
-// 这里顺便和 08 的手写 tiled 版比个时间，感受一下差距。
+// also compares timing against my tiled kernel in 08. humbling.
 
 #include <cstdio>
 #include <cstdlib>
@@ -40,7 +40,7 @@ int main() {
     cudaEvent_t t0, t1;
     cudaEventCreate(&t0); cudaEventCreate(&t1);
 
-    // 暖机
+    // warm up (cuBLAS picks kernels on first call, don't time that)
     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, N, N,
                 &alpha, d_b, N, d_a, N, &beta, d_c, N);
     cudaDeviceSynchronize();
@@ -54,7 +54,7 @@ int main() {
     float ms; cudaEventElapsedTime(&ms, t0, t1);
 
     cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost);
-    printf("cuBLAS sgemm %dx%d: 平均 %.3f ms, C[0]=%.2f\n", N, N, ms / 10, h_c[0]);
+    printf("cuBLAS sgemm %dx%d: %.3f ms avg, C[0]=%.2f\n", N, N, ms / 10, h_c[0]);
 
     cublasDestroy(handle);
     cudaEventDestroy(t0); cudaEventDestroy(t1);

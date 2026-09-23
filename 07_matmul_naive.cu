@@ -1,9 +1,11 @@
-// 矩阵乘法 naive 版：C = A * B
-// 面试必问，先把最朴素的写法搞懂，后面再优化
+// matrix multiply, naive version. C = A * B
+// build: nvcc 07_matmul_naive.cu -o matmul_naive
 //
-// 思路：一个线程算结果矩阵 C 的一个元素
-//   C[i][j] = sum(A[i][k] * B[k][j])  k = 0..K-1
-// 问题：B 是按列访问的，相邻线程访问的内存隔得很远，不合并
+// every thread computes ONE element of C:
+//   C[i][j] = sum over k of A[i][k] * B[k][j]
+// the problem: threads in a warp read B down a column, so consecutive
+// threads touch addresses n*sizeof(float) apart -> zero coalescing.
+// 08 fixes this with shared memory tiling.
 
 #include <cstdio>
 #include <cstdlib>
@@ -13,7 +15,6 @@
 #define N 512
 #define K 512
 
-// 简单起见只做方阵，kMax 对应上面三个
 __global__ void matmulNaive(const float *A, const float *B, float *C, int n) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -21,12 +22,13 @@ __global__ void matmulNaive(const float *A, const float *B, float *C, int n) {
 
     float sum = 0.f;
     for (int k = 0; k < n; k++) {
-        // 行主序：A(row,k) = A[row*n+k]，B(k,col) = B[k*n+col]
+        // row major: A(row,k) = A[row*n+k], B(k,col) = B[k*n+col]
         sum += A[row * n + k] * B[k * n + col];
     }
     C[row * n + col] = sum;
 }
 
+// reference on the cpu to check against
 void cpuMatmul(const float *A, const float *B, float *C, int n) {
     for (int i = 0; i < n; i++)
         for (int j = 0; j < n; j++) {
@@ -58,7 +60,7 @@ int main() {
     dim3 grid((N + 15) / 16, (M + 15) / 16);
     matmulNaive<<<grid, block>>>(d_a, d_b, d_c, N);
     cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) { printf("kernel 挂了: %s\n", cudaGetErrorString(err)); return 1; }
+    if (err != cudaSuccess) { printf("kernel died: %s\n", cudaGetErrorString(err)); return 1; }
 
     cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost);
 
@@ -66,7 +68,7 @@ int main() {
     float maxErr = 0;
     for (int i = 0; i < M * N; i++)
         maxErr = fmaxf(maxErr, fabsf(h_c[i] - h_ref[i]));
-    printf("naive 矩阵乘法, 最大误差 %f %s\n", maxErr, maxErr < 1e-3 ? "(对)" : "(错!)");
+    printf("naive matmul, max error %f %s\n", maxErr, maxErr < 1e-3 ? "(ok)" : "(WRONG!)");
 
     cudaFree(d_a); cudaFree(d_b); cudaFree(d_c);
     free(h_a); free(h_b); free(h_c); free(h_ref);

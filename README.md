@@ -1,47 +1,48 @@
 # cuda-lab
 
-CUDA 入门学习代码，按编号从易到难，每个文件独立可编译运行，注释里写了核心概念。
+CUDA learning notes in code form. Numbered from easy to less easy,
+each file builds and runs on its own, concepts explained in comments.
 
-环境：CUDA 12.6 + NVIDIA RTX 3060 Laptop
+Tested with CUDA 12.6 on an RTX 3060 Laptop.
 
-## 目录
+## contents
 
-| 文件 | 内容 | 关键概念 |
-|---|---|---|
-| `01_hello_cuda.cu` | 第一个 CUDA 程序 | `__global__`、kernel 启动 `<<<blocks, threads>>>`、`threadIdx`/`blockIdx` |
-| `02_device_info.cu` | 查询 GPU 设备信息 | `cudaGetDeviceProperties`、SM、显存、计算能力 |
-| `03_vector_add.cu` | 经典向量加法 | 完整流程：cudaMalloc → cudaMemcpy → kernel → 拷回 → cudaFree，错误检查宏 |
-| `04_grid_2d.cu` | 二维线程网格处理矩阵 | `dim3`、二维 `blockIdx`/`threadIdx`、行主序地址计算 |
-| `05_shared_memory_reduce.cu` | 共享内存归约求和 | `__shared__`、`__syncthreads()`、树形归约 |
-| `06_cuda_events_timing.cu` | CUDA Event 计时 | `cudaEventRecord`/`cudaEventElapsedTime`，对比不同 block 大小性能 |
-| `07_matmul_naive.cu` | 矩阵乘法朴素版 | 一个线程算一个元素，和 CPU 结果对比验证 |
-| `08_matmul_tiled.cu` | 矩阵乘法共享内存分块版 | tiling、`__syncthreads()` 两次同步、比 naive 快数倍 |
-| `09_transpose_coalescing.cu` | 矩阵转置两种写法对比 | 合并访存（coalescing）、warp 内存事务 |
-| `10_unified_memory.cu` | 统一内存 | `cudaMallocManaged`，省掉显式拷贝的取舍 |
-| `11_streams_overlap.cu` | 双流流水线 | `cudaStream_t`、`cudaMemcpyAsync`、锁页内存 `cudaMallocHost` |
-| `12_histogram_atomics.cu` | 直方图统计 | `atomicAdd` 竞争问题、shared memory 局部直方图优化 |
-| `13_cublas_sgemm.cu` | cuBLAS 库调用 | 列主序坑、句柄管理、和手写 kernel 的性能差距 |
+| file | what it covers |
+|---|---|
+| `01_hello_cuda.cu` | first kernel: `__global__`, launch config, threadIdx/blockIdx |
+| `02_device_info.cu` | querying GPU properties (SMs, memory, compute capability) |
+| `03_vector_add.cu` | the full pipeline: cudaMalloc -> memcpy -> kernel -> back -> free, plus error checking |
+| `04_grid_2d.cu` | 2D grids with dim3, row-major indexing |
+| `05_shared_memory_reduce.cu` | `__shared__`, `__syncthreads()`, tree reduction |
+| `06_cuda_events_timing.cu` | cudaEvent timing, block size sweep |
+| `07_matmul_naive.cu` | naive GEMM, one thread per output, verified vs CPU |
+| `08_matmul_tiled.cu` | GEMM with shared memory tiling, much faster than 07 |
+| `09_transpose_coalescing.cu` | transposed access patterns, memory coalescing cost |
+| `10_unified_memory.cu` | cudaMallocManaged, when it's worth it |
+| `11_streams_overlap.cu` | streams + async copies + pinned memory pipeline |
+| `12_histogram_atomics.cu` | atomicAdd, shared memory histogram to cut atomic traffic |
+| `13_cublas_sgemm.cu` | cuBLAS, column-major gotcha, vs my hand-written kernel |
 
-## 编译运行
+## build & run
 
 ```bash
-make          # 编译全部
-make run      # 编译并依次运行
+make        # build everything
+make run    # build and run everything in order
 make clean
 ```
 
-单个文件也可以直接编译：
+or one at a time:
 
 ```bash
 nvcc 03_vector_add.cu -o vector_add
 ./vector_add
 ```
 
-## 学习路线建议
+## suggested order
 
-1. 先跑 `01`、`02`，理解"CPU 发号施令、GPU 干活"的模型和自己的 GPU 参数
-2. 精读 `03`，这是所有 CUDA 程序的骨架（分配、拷贝、计算、拷回、释放）
-3. `04` 学会用二维索引处理矩阵/图像
-4. `05`、`06` 开始接触性能优化：共享内存和正确的 GPU 计时方法
-5. `07`~`09` 是面试重点：手写 GEMM、tiling 优化、合并访存
-6. `10`~`13` 偏工程实践：统一内存、stream 重叠、原子操作、cuBLAS
+1. 01 + 02 first: the CPU-launches-GPU-work model, your hardware's numbers
+2. 03 carefully -- it's the skeleton of every CUDA program
+3. 04 for 2D indexing (images/matrices)
+4. 05/06: shared memory and how to actually time GPU code
+5. 07-09: interview territory. hand-written GEMM, tiling, coalescing
+6. 10-13: more engineering-flavored: unified memory, streams, atomics, cuBLAS

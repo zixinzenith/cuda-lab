@@ -1,12 +1,16 @@
-// 矩阵乘法优化版：共享内存分块（tiling）
-// 对比 07 的 naive 版，能快好几倍
+// matrix multiply, tiled with shared memory. the fix for 07.
+// build: nvcc 08_matmul_tiled.cu -o matmul_tiled
 //
-// 核心想法：naive 版每个元素要从全局显存读 A 的一行 + B 的一列，
-// 大量重复读。改成把 A、B 各切成 TILE x TILE 的小块，
-// 每次协作地把一块搬进 shared memory，block 内所有线程反复用。
+// idea: naive does a full row of A + a full column of B from global memory
+// per output element, tons of redundant reads. instead split A and B into
+// TILE x TILE chunks, load one chunk of each into shared memory, let every
+// thread in the block reuse them.
 //
-// 记忆点：__syncthreads() 出现两次——搬完数据同步一次，
-// 算完再同步一次（防止有的线程先进入下一轮把数据改了）。
+// __syncthreads() appears twice and both are needed:
+//   once after loading the tile, once at the end of the loop
+//   (otherwise a fast thread would overwrite the tile while slow threads
+//   are still reading it). forgetting the second one = wrong results
+//   only sometimes. good luck debugging that.
 
 #include <cstdio>
 #include <cstdlib>
@@ -25,14 +29,13 @@ __global__ void matmulTiled(const float *A, const float *B, float *C, int n) {
 
     int numTiles = (n + TILE - 1) / TILE;
     for (int t = 0; t < numTiles; t++) {
-        // 合作搬运：本 block 的 16x16 个线程各搬一个元素
-        int acol = t * TILE + threadIdx.x;              // A 中要的那一小块
-        int brow = t * TILE + threadIdx.y;              // B 中要的那一小块
+        // cooperative load: the block's 16x16 threads each fetch one element
+        int acol = t * TILE + threadIdx.x;  // tile of A we need
+        int brow = t * TILE + threadIdx.y;  // tile of B we need
         As[threadIdx.y][threadIdx.x] = A[row * n + acol];
         Bs[threadIdx.y][threadIdx.x] = B[brow * n + col];
         __syncthreads();
 
-        // 用 shared memory 里的小块算部分和
         #pragma unroll
         for (int k = 0; k < TILE; k++)
             sum += As[threadIdx.y][k] * Bs[k][threadIdx.x];
@@ -66,6 +69,10 @@ int main() {
     dim3 block(TILE, TILE);
     dim3 grid(N / TILE, N / TILE);
 
+    // first launch includes module load / clock ramp stuff, run twice
+    matmulTiled<<<grid, block>>>(d_a, d_b, d_c, N);
+    cudaDeviceSynchronize();
+
     cudaEventRecord(t0);
     matmulTiled<<<grid, block>>>(d_a, d_b, d_c, N);
     cudaEventRecord(t1);
@@ -74,8 +81,7 @@ int main() {
     cudaEventElapsedTime(&ms, t0, t1);
 
     cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost);
-    printf("tiled 矩阵乘法 %dx%d, 耗时 %.3f ms, C[0][0]=%.2f\n",
-           N, N, ms, h_c[0]);
+    printf("tiled matmul %dx%d: %.3f ms, C[0][0]=%.2f\n", N, N, ms, h_c[0]);
 
     cudaEventDestroy(t0); cudaEventDestroy(t1);
     cudaFree(d_a); cudaFree(d_b); cudaFree(d_c);

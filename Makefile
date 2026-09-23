@@ -1,4 +1,4 @@
-# 一条命令编译所有 .cu 文件
+# builds every .cu file in one go
 NVCC = nvcc
 TARGETS = hello device_info vector_add grid_2d reduce timing \
           matmul_naive matmul_tiled transpose unified streams hist cublas
