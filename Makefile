@@ -1,6 +1,7 @@
 # 一条命令编译所有 .cu 文件
 NVCC = nvcc
-TARGETS = hello device_info vector_add grid_2d reduce timing
+TARGETS = hello device_info vector_add grid_2d reduce timing \
+          matmul_naive matmul_tiled transpose unified streams hist cublas
 
 all: $(TARGETS)
 
@@ -22,6 +23,27 @@ reduce: 05_shared_memory_reduce.cu
 timing: 06_cuda_events_timing.cu
 	$(NVCC) $< -o $@
 
+matmul_naive: 07_matmul_naive.cu
+	$(NVCC) $< -o $@
+
+matmul_tiled: 08_matmul_tiled.cu
+	$(NVCC) $< -o $@
+
+transpose: 09_transpose_coalescing.cu
+	$(NVCC) $< -o $@
+
+unified: 10_unified_memory.cu
+	$(NVCC) $< -o $@
+
+streams: 11_streams_overlap.cu
+	$(NVCC) $< -o $@
+
+hist: 12_histogram_atomics.cu
+	$(NVCC) $< -o $@
+
+cublas: 13_cublas_sgemm.cu
+	$(NVCC) $< -lcublas -o $@
+
 run: all
 	./hello
 	./device_info
@@ -29,6 +51,13 @@ run: all
 	./grid_2d
 	./reduce
 	./timing
+	./matmul_naive
+	./matmul_tiled
+	./transpose
+	./unified
+	./streams
+	./hist
+	./cublas
 
 clean:
 	rm -f $(TARGETS)

@@ -4,4 +4,11 @@ vector_add
 grid_2d
 reduce
 timing
+matmul_naive
+matmul_tiled
+transpose
+unified
+streams
+hist
+cublas
 *.o
