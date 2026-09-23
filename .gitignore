@@ -11,4 +11,14 @@ unified
 streams
 hist
 cublas
+transpose_shared
+scan
+warp_ops
+bitonic
+image
+conv2d
+matmul_regtile
+thrust_demo
+graphs
+sobel.pgm
 *.o

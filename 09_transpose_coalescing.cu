@@ -9,7 +9,8 @@
 // time them, the gap is the price of strided access.
 //
 // a real transpose wants BOTH sides coalesced: stage the tile through
-// shared memory and transpose it there. todo: add that version
+// shared memory and transpose it there. that version lives in
+// 14_transpose_shared.cu now
 
 #include <cstdio>
 #include <cstdlib>
